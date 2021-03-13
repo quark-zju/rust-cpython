@@ -2,6 +2,7 @@ use libc::{c_char, c_int, c_void};
 
 use crate::object::PyObject;
 use crate::pystate::PyThreadState;
+use crate::pystate::Py_tracefunc;
 
 #[cfg_attr(windows, link(name = "pythonXY"))]
 extern "C" {
@@ -91,4 +92,10 @@ extern "C" {
     pub fn PyEval_ReleaseThread(tstate: *mut PyThreadState) -> ();
     #[cfg(not(Py_3_8))]
     pub fn PyEval_ReInitThreads() -> ();
+}
+
+// include/cpython/ceval.h
+extern "C" {
+    pub fn PyEval_SetProfile(func: Option<Py_tracefunc>, obj: *mut PyObject);
+    pub fn PyEval_SetTrace(func: Option<Py_tracefunc>, obj: *mut PyObject);
 }

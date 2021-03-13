@@ -1,3 +1,5 @@
+use libc::c_int;
+
 #[cfg(Py_3_9)]
 use crate::frameobject::PyFrameObject;
 use crate::moduleobject::PyModuleDef;
@@ -10,6 +12,23 @@ pub const MAX_CO_EXTRA_USERS: libc::c_int = 255;
 pub struct PyInterpreterState {
     _private: [u8; 0],
 }
+
+pub type Py_tracefunc = unsafe extern "C" fn(
+    arg1: *mut PyObject,
+    arg2: *mut PyFrameObject,
+    arg3: c_int,
+    arg4: *mut PyObject,
+) -> c_int;
+
+/* The following values are used for 'what' for tracefunc functions: */
+pub const PyTrace_CALL: c_int = 0;
+pub const PyTrace_EXCEPTION: c_int = 1;
+pub const PyTrace_LINE: c_int = 2;
+pub const PyTrace_RETURN: c_int = 3;
+pub const PyTrace_C_CALL: c_int = 4;
+pub const PyTrace_C_EXCEPTION: c_int = 5;
+pub const PyTrace_C_RETURN: c_int = 6;
+pub const PyTrace_OPCODE: c_int = 7;
 
 #[repr(C)]
 pub struct PyThreadState {
