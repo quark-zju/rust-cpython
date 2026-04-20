@@ -65,6 +65,21 @@ static SYSCONFIG_VALUES: [&str; 1] = [
     "Py_UNICODE_SIZE", // note - not present on python 3.3+, which is always wide
 ];
 
+/// sysconfig variables whose raw compiler flags may affect bindgen's view of
+/// Python headers. The values often contain far more than we want to pass to
+/// clang, so we filter them down to flags that influence preprocessing and
+/// target layout.
+static BINDGEN_FLAG_VARS: [&str; 8] = [
+    "BASECPPFLAGS",
+    "CPPFLAGS",
+    "CONFIGURE_CPPFLAGS",
+    "BASECFLAGS",
+    "CFLAGS",
+    "CONFIGURE_CFLAGS",
+    "CCSHARED",
+    "CFLAGSFORSHARED",
+];
+
 fn watched_var_os(key: &str) -> Option<OsString> {
     println!("cargo:rerun-if-env-changed={}", key);
     env::var_os(key)
@@ -222,6 +237,96 @@ print(platinclude or '');";
     Ok(include_paths)
 }
 
+fn get_bindgen_flag_tokens(python_path: &str) -> Result<Vec<String>, String> {
+    let script = format!(
+        "import shlex, sysconfig\nvars = {vars:?}\nfor name in vars:\n    value = sysconfig.get_config_var(name) or ''\n    for flag in shlex.split(value):\n        print(flag)\n",
+        vars = BINDGEN_FLAG_VARS
+    );
+    let out = run_python_script(python_path, &script)?;
+
+    Ok(out
+        .split(NEWLINE_SEQUENCE)
+        .filter(|line| !line.is_empty())
+        .map(str::to_owned)
+        .collect())
+}
+
+fn push_bindgen_flag_with_value(
+    filtered: &mut Vec<String>,
+    raw_args: &[String],
+    flag: &str,
+    index: usize,
+) -> Result<usize, String> {
+    filtered.push(flag.to_owned());
+    let value = raw_args.get(index + 1).ok_or_else(|| {
+        format!(
+            "sysconfig reported malformed compiler flags: `{}` is missing its argument",
+            flag
+        )
+    })?;
+    filtered.push(value.clone());
+    Ok(index + 2)
+}
+
+fn filter_bindgen_clang_args(raw_args: &[String]) -> Result<Vec<String>, String> {
+    let mut filtered = Vec::new();
+    let mut index = 0;
+
+    while let Some(arg) = raw_args.get(index) {
+        if arg == "-D" || arg == "-U" || arg == "-I" || arg == "-F" || arg == "-arch" {
+            index = push_bindgen_flag_with_value(&mut filtered, raw_args, arg, index)?;
+            continue;
+        }
+
+        if arg == "-isystem"
+            || arg == "-iquote"
+            || arg == "-idirafter"
+            || arg == "-iframework"
+            || arg == "-include"
+            || arg == "-imacros"
+            || arg == "-target"
+            || arg == "--sysroot"
+        {
+            index = push_bindgen_flag_with_value(&mut filtered, raw_args, arg, index)?;
+            continue;
+        }
+
+        let keep = arg == "-pthread"
+            || arg.starts_with("-D")
+            || arg.starts_with("-U")
+            || (arg.starts_with("-I") && arg != "-I")
+            || (arg.starts_with("-F") && arg != "-F")
+            || arg.starts_with("-isystem")
+            || arg.starts_with("-iquote")
+            || arg.starts_with("-idirafter")
+            || arg.starts_with("-iframework")
+            || arg.starts_with("-include")
+            || arg.starts_with("-imacros")
+            || arg.starts_with("-target=")
+            || arg.starts_with("--sysroot=")
+            || arg == "-m32"
+            || arg == "-m64"
+            || arg.starts_with("-mmacosx-version-min=")
+            || arg.starts_with("-miphoneos-version-min=")
+            || arg.starts_with("-mios-version-min=")
+            || arg.starts_with("-std=")
+            || arg.starts_with("-stdlib=");
+
+        if keep && !filtered.iter().any(|existing| existing == arg) {
+            filtered.push(arg.clone());
+        }
+
+        index += 1;
+    }
+
+    Ok(filtered)
+}
+
+fn get_bindgen_clang_args(python_path: &str) -> Result<Vec<String>, String> {
+    let raw_args = get_bindgen_flag_tokens(python_path)?;
+    filter_bindgen_clang_args(&raw_args)
+}
+
 fn limited_api_define(version: &PythonVersion) -> String {
     let minor = version.minor.unwrap_or(4);
     format!("-DPy_LIMITED_API=0x{:02X}{:02X}0000", version.major, minor)
@@ -262,6 +367,10 @@ fn generate_bindings(interpreter: &str, version: &PythonVersion) -> Result<(), S
 
     for include_path in get_include_paths(interpreter)? {
         builder = builder.clang_arg(format!("-I{}", include_path));
+    }
+
+    for clang_arg in get_bindgen_clang_args(interpreter)? {
+        builder = builder.clang_arg(clang_arg);
     }
 
     if watched_var_os("CARGO_FEATURE_PEP_384").is_some() {
