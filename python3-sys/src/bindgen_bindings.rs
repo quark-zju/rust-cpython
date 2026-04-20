@@ -58,6 +58,12 @@ pub const PySequenceMethods_INIT: PySequenceMethods = unsafe { core::mem::zeroed
 pub const PyMappingMethods_INIT: PyMappingMethods = unsafe { core::mem::zeroed() };
 pub const PyTypeObject_INIT: PyTypeObject = unsafe { core::mem::zeroed() };
 
+#[cfg(not(Py_3_9))]
+#[inline(always)]
+pub unsafe fn PyCFunction_New(ml: *mut PyMethodDef, slf: *mut PyObject) -> *mut PyObject {
+    PyCFunction_NewEx(ml, slf, core::ptr::null_mut())
+}
+
 impl PyTypeObject {
     #[inline]
     pub fn init_ob_type(&mut self, type_object: *mut PyTypeObject) {
