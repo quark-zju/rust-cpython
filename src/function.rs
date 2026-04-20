@@ -48,14 +48,14 @@ macro_rules! py_method_def {
         if !$doc.is_empty() {
             METHOD_DEF.ml_doc = concat!($doc, "\0").as_ptr() as *const _;
         }
-        #[cfg(feature = "python27-sys")]
+        #[cfg(not(feature = "bindgen"))]
         {
             METHOD_DEF.ml_meth = Some(std::mem::transmute::<
                 $crate::_detail::ffi::PyCFunctionWithKeywords,
                 $crate::_detail::ffi::PyCFunction,
             >($wrap));
         }
-        #[cfg(feature = "python3-sys")]
+        #[cfg(feature = "bindgen")]
         {
             METHOD_DEF.ml_meth = std::mem::transmute::<
                 unsafe extern "C" fn(
