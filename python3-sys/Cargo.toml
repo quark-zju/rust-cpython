@@ -26,6 +26,7 @@ edition = "2018"
 libc = "0.2"
 
 [build-dependencies]
+bindgen = "0.71"
 regex = "1"
 
 [features]
@@ -62,6 +63,10 @@ link-mode-default = []
 # rarely use a static Python library.
 link-mode-unresolved-static = []
 
+# Generate bindings from the local Python headers at build time instead of
+# using the checked-in handwritten module tree.
+bindgen = []
+
 # Bind to any python 3.x.
 python-3 = []
 
@@ -77,4 +82,3 @@ python-3-11 = []
 
 # Restrict to PEP-384 stable ABI
 pep-384 = []
-

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::env;
 use std::ffi::OsString;
 use std::fmt;
+use std::path::PathBuf;
 use std::process::Command;
 
 struct PythonVersion {
@@ -67,6 +68,10 @@ static SYSCONFIG_VALUES: [&str; 1] = [
 fn watched_var_os(key: &str) -> Option<OsString> {
     println!("cargo:rerun-if-env-changed={}", key);
     env::var_os(key)
+}
+
+fn is_bindgen_enabled() -> bool {
+    watched_var_os("CARGO_FEATURE_BINDGEN").is_some()
 }
 
 /// Examine python's compile flags to pass to cfg by launching
@@ -193,6 +198,83 @@ fn run_python_script(interpreter: &str, script: &str) -> Result<String, String> 
     }
 
     Ok(String::from_utf8(out.stdout).unwrap())
+}
+
+fn get_include_paths(python_path: &str) -> Result<Vec<String>, String> {
+    let script = "import sysconfig; \
+include = sysconfig.get_path('include'); \
+platinclude = sysconfig.get_path('platinclude'); \
+print(include or ''); \
+print(platinclude or '');";
+    let out = run_python_script(python_path, script)?;
+    let mut include_paths = Vec::new();
+
+    for line in out.trim_end().split(NEWLINE_SEQUENCE) {
+        if !line.is_empty() && !include_paths.iter().any(|path| path == line) {
+            include_paths.push(line.to_owned());
+        }
+    }
+
+    if include_paths.is_empty() {
+        return Err("python did not report any include directories".to_owned());
+    }
+
+    Ok(include_paths)
+}
+
+fn limited_api_define(version: &PythonVersion) -> String {
+    let minor = version.minor.unwrap_or(4);
+    format!("-DPy_LIMITED_API=0x{:02X}{:02X}0000", version.major, minor)
+}
+
+fn generate_bindings(interpreter: &str, version: &PythonVersion) -> Result<(), String> {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR")
+        .map_err(|err| format!("failed to read CARGO_MANIFEST_DIR: {}", err))?;
+    let wrapper = PathBuf::from(manifest_dir)
+        .join("bindgen")
+        .join("wrapper.h");
+    let out_file = PathBuf::from(
+        env::var("OUT_DIR").map_err(|err| format!("failed to read OUT_DIR: {}", err))?,
+    )
+    .join("bindings.rs");
+
+    println!("cargo:rerun-if-changed={}", wrapper.display());
+
+    let mut builder = bindgen::Builder::default()
+        .header(
+            wrapper
+                .to_str()
+                .ok_or_else(|| format!("non-utf8 wrapper path {}", wrapper.display()))?,
+        )
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+        .allowlist_function("Py.*")
+        .allowlist_function("_Py.*")
+        .allowlist_type("Py.*")
+        .allowlist_type("_Py.*")
+        .allowlist_var("Py.*")
+        .allowlist_var("_Py.*")
+        .allowlist_var("PY.*")
+        .ctypes_prefix("libc")
+        .layout_tests(false)
+        .generate_comments(false)
+        .use_core()
+        .size_t_is_usize(true);
+
+    for include_path in get_include_paths(interpreter)? {
+        builder = builder.clang_arg(format!("-I{}", include_path));
+    }
+
+    if watched_var_os("CARGO_FEATURE_PEP_384").is_some() {
+        builder = builder.clang_arg(limited_api_define(version));
+    }
+
+    let bindings = builder
+        .generate()
+        .map_err(|_| "bindgen failed to generate Python bindings".to_owned())?;
+    bindings
+        .write_to_file(&out_file)
+        .map_err(|err| format!("failed to write {}: {}", out_file.display(), err))?;
+    Ok(())
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -431,6 +513,19 @@ fn version_from_env() -> Result<PythonVersion, String> {
 }
 
 fn main() {
+    println!("cargo:rustc-check-cfg=cfg(Py_LIMITED_API)");
+    println!("cargo:rustc-check-cfg=cfg(Py_3_3)");
+    println!("cargo:rustc-check-cfg=cfg(Py_3_4)");
+    println!("cargo:rustc-check-cfg=cfg(Py_3_5)");
+    println!("cargo:rustc-check-cfg=cfg(Py_3_6)");
+    println!("cargo:rustc-check-cfg=cfg(Py_3_7)");
+    println!("cargo:rustc-check-cfg=cfg(Py_3_8)");
+    println!("cargo:rustc-check-cfg=cfg(Py_3_9)");
+    println!("cargo:rustc-check-cfg=cfg(Py_3_10)");
+    println!("cargo:rustc-check-cfg=cfg(Py_3_11)");
+    println!("cargo:rustc-check-cfg=cfg(Py_3_12)");
+    println!("cargo:rustc-check-cfg=cfg(py_sys_config, values(\"Py_USING_UNICODE\", \"Py_UNICODE_WIDE\", \"WITH_THREAD\", \"Py_DEBUG\", \"Py_REF_DEBUG\", \"Py_TRACE_REFS\", \"COUNT_ALLOCS\", \"Py_UNICODE_SIZE_2\", \"Py_UNICODE_SIZE_4\"))");
+
     // 1. Setup cfg variables so we can do conditional compilation in this
     // library based on the python interpeter's compilation flags. This is
     // necessary for e.g. matching the right unicode and threading interfaces.
@@ -443,6 +538,9 @@ fn main() {
     // match the pkg-config package name, which is going to have a . in it).
     let version = version_from_env().unwrap();
     let python_interpreter_path = configure_from_path(&version).unwrap();
+    if is_bindgen_enabled() {
+        generate_bindings(&python_interpreter_path, &version).unwrap();
+    }
     let mut config_map = get_config_vars(&python_interpreter_path).unwrap();
     if is_not_none_or_zero(config_map.get("Py_DEBUG")) {
         config_map.insert("Py_TRACE_REFS".to_owned(), "1".to_owned()); // Py_DEBUG implies Py_TRACE_REFS.

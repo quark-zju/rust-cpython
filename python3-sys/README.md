@@ -22,3 +22,11 @@ version = "*"
 
 Documentation for the python API is available on [https://docs.python.org/3/c-api/].
 
+To experiment with build-time generated bindings instead of the handwritten
+module tree, enable the `bindgen` feature:
+
+```toml
+[dependencies.python3-sys]
+version = "*"
+features = ["bindgen"]
+```
