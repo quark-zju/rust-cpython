@@ -107,7 +107,7 @@ pub unsafe fn data_drop<T>(_py: Python<'_>, obj: *mut ffi::PyObject, offset: usi
 #[inline]
 #[doc(hidden)]
 pub fn is_ready(_py: Python, ty: &ffi::PyTypeObject) -> bool {
-    (ty.tp_flags & ffi::Py_TPFLAGS_READY) != 0
+    (ty.tp_flags & ffi::Py_TPFLAGS_READY as libc::c_ulong) != 0
 }
 
 /// A PythonObject that is usable as a base type with the `py_class!()` macro.
@@ -155,7 +155,7 @@ impl BaseObject for PyObject {
         }
         // For heap types, PyType_GenericAlloc calls INCREF on the type objects,
         // so we need to call DECREF here:
-        if ffi::PyType_HasFeature(ty, ffi::Py_TPFLAGS_HEAPTYPE) != 0 {
+        if ffi::PyType_HasFeature(ty, ffi::Py_TPFLAGS_HEAPTYPE as libc::c_ulong) != 0 {
             ffi::Py_DECREF(ty as *mut ffi::PyObject);
         }
     }

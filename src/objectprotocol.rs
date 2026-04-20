@@ -118,19 +118,19 @@ pub trait ObjectProtocol: PythonObject {
             a: *mut ffi::PyObject,
             b: *mut ffi::PyObject,
         ) -> PyResult<Ordering> {
-            let result = ffi::PyObject_RichCompareBool(a, b, ffi::Py_EQ);
+            let result = ffi::PyObject_RichCompareBool(a, b, ffi::Py_EQ as libc::c_int);
             if result == 1 {
                 return Ok(Ordering::Equal);
             } else if result < 0 {
                 return Err(PyErr::fetch(py));
             }
-            let result = ffi::PyObject_RichCompareBool(a, b, ffi::Py_LT);
+            let result = ffi::PyObject_RichCompareBool(a, b, ffi::Py_LT as libc::c_int);
             if result == 1 {
                 return Ok(Ordering::Less);
             } else if result < 0 {
                 return Err(PyErr::fetch(py));
             }
-            let result = ffi::PyObject_RichCompareBool(a, b, ffi::Py_GT);
+            let result = ffi::PyObject_RichCompareBool(a, b, ffi::Py_GT as libc::c_int);
             if result == 1 {
                 return Ok(Ordering::Greater);
             } else if result < 0 {

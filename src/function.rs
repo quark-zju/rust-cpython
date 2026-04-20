@@ -48,10 +48,24 @@ macro_rules! py_method_def {
         if !$doc.is_empty() {
             METHOD_DEF.ml_doc = concat!($doc, "\0").as_ptr() as *const _;
         }
-        METHOD_DEF.ml_meth = Some(std::mem::transmute::<
-            $crate::_detail::ffi::PyCFunctionWithKeywords,
-            $crate::_detail::ffi::PyCFunction,
-        >($wrap));
+        #[cfg(feature = "python27-sys")]
+        {
+            METHOD_DEF.ml_meth = Some(std::mem::transmute::<
+                $crate::_detail::ffi::PyCFunctionWithKeywords,
+                $crate::_detail::ffi::PyCFunction,
+            >($wrap));
+        }
+        #[cfg(feature = "python3-sys")]
+        {
+            METHOD_DEF.ml_meth = std::mem::transmute::<
+                unsafe extern "C" fn(
+                    *mut $crate::_detail::ffi::PyObject,
+                    *mut $crate::_detail::ffi::PyObject,
+                    *mut $crate::_detail::ffi::PyObject,
+                ) -> *mut $crate::_detail::ffi::PyObject,
+                $crate::_detail::ffi::PyCFunction,
+            >($wrap);
+        }
         &mut METHOD_DEF
     }};
 }

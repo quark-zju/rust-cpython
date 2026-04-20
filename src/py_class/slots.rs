@@ -66,7 +66,8 @@ macro_rules! py_class_type_object_flags {
         $traverse_proc: expr,
         $traverse_data: tt
     }) => {
-        $crate::py_class::slots::TPFLAGS_DEFAULT | $crate::_detail::ffi::Py_TPFLAGS_HAVE_GC
+        $crate::py_class::slots::TPFLAGS_DEFAULT
+            | $crate::_detail::ffi::Py_TPFLAGS_HAVE_GC as ::libc::c_ulong
     };
 }
 
@@ -74,7 +75,7 @@ macro_rules! py_class_type_object_flags {
 pub const TPFLAGS_DEFAULT: ::libc::c_long = ffi::Py_TPFLAGS_DEFAULT | ffi::Py_TPFLAGS_CHECKTYPES;
 
 #[cfg(feature = "python3-sys")]
-pub const TPFLAGS_DEFAULT: ::libc::c_ulong = ffi::Py_TPFLAGS_DEFAULT;
+pub const TPFLAGS_DEFAULT: ::libc::c_ulong = ffi::Py_TPFLAGS_DEFAULT as ::libc::c_ulong;
 
 #[macro_export]
 #[doc(hidden)]
@@ -406,12 +407,12 @@ macro_rules! py_class_ternary_slot {
 
 pub fn extract_op(py: Python, op: c_int) -> PyResult<CompareOp> {
     match op {
-        ffi::Py_LT => Ok(CompareOp::Lt),
-        ffi::Py_LE => Ok(CompareOp::Le),
-        ffi::Py_EQ => Ok(CompareOp::Eq),
-        ffi::Py_NE => Ok(CompareOp::Ne),
-        ffi::Py_GT => Ok(CompareOp::Gt),
-        ffi::Py_GE => Ok(CompareOp::Ge),
+        x if x == ffi::Py_LT as c_int => Ok(CompareOp::Lt),
+        x if x == ffi::Py_LE as c_int => Ok(CompareOp::Le),
+        x if x == ffi::Py_EQ as c_int => Ok(CompareOp::Eq),
+        x if x == ffi::Py_NE as c_int => Ok(CompareOp::Ne),
+        x if x == ffi::Py_GT as c_int => Ok(CompareOp::Gt),
+        x if x == ffi::Py_GE as c_int => Ok(CompareOp::Ge),
         _ => Err(PyErr::new_lazy_init(
             py.get_type::<exc::ValueError>(),
             Some(

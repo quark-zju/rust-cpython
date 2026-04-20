@@ -42,7 +42,14 @@ impl<'a> VisitProc<'a> {
     where
         T: PythonObject,
     {
-        let r = unsafe { (self.visit)(obj.as_ptr(), self.arg) };
+        #[cfg(feature = "python3-sys")]
+        let visit = self
+            .visit
+            .expect("bindgen should supply a visit callback to tp_traverse");
+        #[cfg(feature = "python27-sys")]
+        let visit = self.visit;
+
+        let r = unsafe { visit(obj.as_ptr(), self.arg) };
         if r == 0 {
             Ok(())
         } else {

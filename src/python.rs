@@ -255,7 +255,7 @@ impl<'p> Python<'p> {
         globals: Option<&PyDict>,
         locals: Option<&PyDict>,
     ) -> PyResult<PyObject> {
-        self.run_code(code, ffi::Py_eval_input, globals, locals)
+        self.run_code(code, ffi::Py_eval_input as libc::c_int, globals, locals)
     }
 
     /// Executes one or more Python statements in the given context.
@@ -268,7 +268,7 @@ impl<'p> Python<'p> {
         globals: Option<&PyDict>,
         locals: Option<&PyDict>,
     ) -> PyResult<()> {
-        self.run_code(code, ffi::Py_file_input, globals, locals)?;
+        self.run_code(code, ffi::Py_file_input as libc::c_int, globals, locals)?;
         Ok(())
     }
 
