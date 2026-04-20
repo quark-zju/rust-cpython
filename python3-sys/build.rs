@@ -65,10 +65,8 @@ static SYSCONFIG_VALUES: [&str; 1] = [
     "Py_UNICODE_SIZE", // note - not present on python 3.3+, which is always wide
 ];
 
-/// sysconfig variables whose raw compiler flags may affect bindgen's view of
-/// Python headers. The values often contain far more than we want to pass to
-/// clang, so we filter them down to flags that influence preprocessing and
-/// target layout.
+/// sysconfig variables whose raw compiler flags may contain macro definitions
+/// that affect bindgen's view of Python headers.
 static BINDGEN_FLAG_VARS: [&str; 8] = [
     "BASECPPFLAGS",
     "CPPFLAGS",
@@ -251,80 +249,17 @@ fn get_bindgen_flag_tokens(python_path: &str) -> Result<Vec<String>, String> {
         .collect())
 }
 
-fn push_bindgen_flag_with_value(
-    filtered: &mut Vec<String>,
-    raw_args: &[String],
-    flag: &str,
-    index: usize,
-) -> Result<usize, String> {
-    filtered.push(flag.to_owned());
-    let value = raw_args.get(index + 1).ok_or_else(|| {
-        format!(
-            "sysconfig reported malformed compiler flags: `{}` is missing its argument",
-            flag
-        )
-    })?;
-    filtered.push(value.clone());
-    Ok(index + 2)
-}
-
-fn filter_bindgen_clang_args(raw_args: &[String]) -> Result<Vec<String>, String> {
-    let mut filtered = Vec::new();
-    let mut index = 0;
-
-    while let Some(arg) = raw_args.get(index) {
-        if arg == "-D" || arg == "-U" || arg == "-I" || arg == "-F" || arg == "-arch" {
-            index = push_bindgen_flag_with_value(&mut filtered, raw_args, arg, index)?;
-            continue;
-        }
-
-        if arg == "-isystem"
-            || arg == "-iquote"
-            || arg == "-idirafter"
-            || arg == "-iframework"
-            || arg == "-include"
-            || arg == "-imacros"
-            || arg == "-target"
-            || arg == "--sysroot"
-        {
-            index = push_bindgen_flag_with_value(&mut filtered, raw_args, arg, index)?;
-            continue;
-        }
-
-        let keep = arg == "-pthread"
-            || arg.starts_with("-D")
-            || arg.starts_with("-U")
-            || (arg.starts_with("-I") && arg != "-I")
-            || (arg.starts_with("-F") && arg != "-F")
-            || arg.starts_with("-isystem")
-            || arg.starts_with("-iquote")
-            || arg.starts_with("-idirafter")
-            || arg.starts_with("-iframework")
-            || arg.starts_with("-include")
-            || arg.starts_with("-imacros")
-            || arg.starts_with("-target=")
-            || arg.starts_with("--sysroot=")
-            || arg == "-m32"
-            || arg == "-m64"
-            || arg.starts_with("-mmacosx-version-min=")
-            || arg.starts_with("-miphoneos-version-min=")
-            || arg.starts_with("-mios-version-min=")
-            || arg.starts_with("-std=")
-            || arg.starts_with("-stdlib=");
-
-        if keep && !filtered.iter().any(|existing| existing == arg) {
-            filtered.push(arg.clone());
-        }
-
-        index += 1;
-    }
-
-    Ok(filtered)
-}
-
 fn get_bindgen_clang_args(python_path: &str) -> Result<Vec<String>, String> {
     let raw_args = get_bindgen_flag_tokens(python_path)?;
-    filter_bindgen_clang_args(&raw_args)
+    Ok(raw_args
+        .into_iter()
+        .filter(|arg| arg.starts_with("-D") || arg.starts_with("-U"))
+        .fold(Vec::new(), |mut filtered, arg| {
+            if !filtered.iter().any(|existing| existing == &arg) {
+                filtered.push(arg);
+            }
+            filtered
+        }))
 }
 
 fn limited_api_define(version: &PythonVersion) -> String {
