@@ -16,6 +16,19 @@ pub const PyUnicode_1BYTE_KIND: c_int = PyUnicode_Kind_PyUnicode_1BYTE_KIND as c
 pub const PyUnicode_2BYTE_KIND: c_int = PyUnicode_Kind_PyUnicode_2BYTE_KIND as c_int;
 pub const PyUnicode_4BYTE_KIND: c_int = PyUnicode_Kind_PyUnicode_4BYTE_KIND as c_int;
 
+#[cfg(all(not(Py_3_12), not(Py_3_13)))]
+pub const PyObject_HEAD_INIT: PyObject = PyObject {
+    ob_refcnt: 1,
+    ob_type: core::ptr::null_mut(),
+};
+
+#[cfg(all(Py_3_12, not(Py_3_13)))]
+pub const PyObject_HEAD_INIT: PyObject = PyObject {
+    __bindgen_anon_1: _object__bindgen_ty_1 { ob_refcnt: 1 },
+    ob_type: core::ptr::null_mut(),
+};
+
+#[cfg(Py_3_13)]
 pub const PyObject_HEAD_INIT: PyObject = PyObject {
     __bindgen_anon_1: _object__bindgen_ty_1 { ob_refcnt_full: 1 },
     ob_type: core::ptr::null_mut(),
@@ -55,6 +68,12 @@ impl PyTypeObject {
 #[inline(always)]
 unsafe fn py_type_fast_subclass(tp: *mut PyTypeObject, flag: c_ulong) -> c_int {
     (((*tp).tp_flags & flag) != 0) as c_int
+}
+
+#[cfg(not(Py_3_13))]
+#[inline(always)]
+pub unsafe fn Py_TYPE(ob: *mut PyObject) -> *mut PyTypeObject {
+    (*ob).ob_type
 }
 
 #[inline(always)]
@@ -195,15 +214,16 @@ pub unsafe fn PySet_CheckExact(ob: *mut PyObject) -> c_int {
 #[inline(always)]
 pub unsafe fn PySet_Check(ob: *mut PyObject) -> c_int {
     (PySet_CheckExact(ob) != 0
-        || PyType_IsSubtype(Py_TYPE(ob), core::ptr::addr_of_mut!(PySet_Type)) != 0)
-        as c_int
+        || PyType_IsSubtype(Py_TYPE(ob), core::ptr::addr_of_mut!(PySet_Type)) != 0) as c_int
 }
 
 #[inline(always)]
 pub unsafe fn PyExceptionClass_Check(x: *mut PyObject) -> c_int {
     (PyType_Check(x) != 0
-        && py_type_fast_subclass(x as *mut PyTypeObject, Py_TPFLAGS_BASE_EXC_SUBCLASS as c_ulong)
-            != 0) as c_int
+        && py_type_fast_subclass(
+            x as *mut PyTypeObject,
+            Py_TPFLAGS_BASE_EXC_SUBCLASS as c_ulong,
+        ) != 0) as c_int
 }
 
 #[inline(always)]
@@ -221,6 +241,7 @@ pub unsafe fn PyModule_Create(module: *mut PyModuleDef) -> *mut PyObject {
     PyModule_Create2(module, PYTHON_API_VERSION as c_int)
 }
 
+#[cfg(Py_3_13)]
 #[inline(always)]
 pub unsafe fn PyEval_ThreadsInitialized() -> c_int {
     Py_IsInitialized()

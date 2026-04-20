@@ -570,6 +570,7 @@ fn main() {
     println!("cargo:rustc-check-cfg=cfg(Py_3_10)");
     println!("cargo:rustc-check-cfg=cfg(Py_3_11)");
     println!("cargo:rustc-check-cfg=cfg(Py_3_12)");
+    println!("cargo:rustc-check-cfg=cfg(Py_3_13)");
     println!("cargo:rustc-check-cfg=cfg(py_sys_config, values(\"Py_USING_UNICODE\", \"Py_UNICODE_WIDE\", \"WITH_THREAD\", \"Py_DEBUG\", \"Py_REF_DEBUG\", \"Py_TRACE_REFS\", \"COUNT_ALLOCS\", \"Py_UNICODE_SIZE_2\", \"Py_UNICODE_SIZE_4\"))");
 
     // 1. Setup cfg variables so we can do conditional compilation in this
