@@ -12,19 +12,9 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 use libc::{c_int, c_ulong};
 
-pub const PyUnicode_1BYTE_KIND: c_int = 1;
-pub const PyUnicode_2BYTE_KIND: c_int = 2;
-pub const PyUnicode_4BYTE_KIND: c_int = 4;
-
-pub const METH_VARARGS: c_int = 0x0001;
-pub const METH_KEYWORDS: c_int = 0x0002;
-pub const METH_NOARGS: c_int = 0x0004;
-pub const METH_O: c_int = 0x0008;
-pub const METH_CLASS: c_int = 0x0010;
-pub const METH_STATIC: c_int = 0x0020;
-pub const METH_COEXIST: c_int = 0x0040;
-pub const METH_FASTCALL: c_int = 0x0080;
-pub const METH_METHOD: c_int = 0x0200;
+pub const PyUnicode_1BYTE_KIND: c_int = PyUnicode_Kind_PyUnicode_1BYTE_KIND as c_int;
+pub const PyUnicode_2BYTE_KIND: c_int = PyUnicode_Kind_PyUnicode_2BYTE_KIND as c_int;
+pub const PyUnicode_4BYTE_KIND: c_int = PyUnicode_Kind_PyUnicode_4BYTE_KIND as c_int;
 
 pub const PyObject_HEAD_INIT: PyObject = PyObject {
     __bindgen_anon_1: _object__bindgen_ty_1 { ob_refcnt_full: 1 },

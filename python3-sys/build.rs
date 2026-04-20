@@ -294,6 +294,7 @@ fn generate_bindings(interpreter: &str, version: &PythonVersion) -> Result<(), S
         .allowlist_var("Py.*")
         .allowlist_var("_Py.*")
         .allowlist_var("PY.*")
+        .allowlist_var("METH_.*")
         .ctypes_prefix("libc")
         .layout_tests(false)
         .generate_comments(false)
