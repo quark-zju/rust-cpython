@@ -287,6 +287,7 @@ fn generate_bindings(interpreter: &str, version: &PythonVersion) -> Result<(), S
                 .ok_or_else(|| format!("non-utf8 wrapper path {}", wrapper.display()))?,
         )
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+        .default_macro_constant_type(bindgen::MacroTypeVariation::Signed)
         .allowlist_function("Py.*")
         .allowlist_function("_Py.*")
         .allowlist_type("Py.*")
