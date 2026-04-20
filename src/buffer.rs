@@ -167,11 +167,7 @@ impl PyBuffer {
             let mut buf = Box::new(mem::zeroed::<ffi::Py_buffer>());
             err::error_on_minusone(
                 py,
-                ffi::PyObject_GetBuffer(
-                    obj.as_ptr(),
-                    &mut *buf,
-                    ffi::PyBUF_FULL_RO as libc::c_int,
-                ),
+                ffi::PyObject_GetBuffer(obj.as_ptr(), &mut *buf, ffi::PyBUF_FULL_RO),
             )?;
             validate(&buf);
             Ok(PyBuffer(buf))
