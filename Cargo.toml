@@ -58,6 +58,10 @@ version = "0.7.2"
 [features]
 default = ["python3-sys"]
 
+# Forward python3-sys's experimental bindgen path so cpython can be checked
+# against it without editing dependency declarations.
+bindgen = ["python3-sys/bindgen"]
+
 # Enable serde support that converts between a serde type and PyObject.
 serde-convert = ["serde"]
 
@@ -117,4 +121,3 @@ py2-no-auto-unicode-promotion = []
 
 [workspace]
 members = ["python27-sys", "python3-sys", "extensions/hello"]
-
